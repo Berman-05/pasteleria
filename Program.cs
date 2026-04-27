@@ -43,4 +43,3 @@ app.MapControllers();
 // 🔹 4. PUERTO (al final)
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 app.Run($"http://0.0.0.0:{port}");
-app.Run();
