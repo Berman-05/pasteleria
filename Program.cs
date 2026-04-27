@@ -28,16 +28,25 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    if (!db.Roles.Any())
+    try
     {
-        db.Roles.AddRange(
-            new Rol { NombreRol = "Cliente" },
-            new Rol { NombreRol = "Estudiante" },
-            new Rol { NombreRol = "Admin" }
-        );
-        db.SaveChanges();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        db.Database.Migrate();
+
+        if (!db.Roles.Any())
+        {
+            db.Roles.AddRange(
+                new Rol { NombreRol = "Cliente" },
+                new Rol { NombreRol = "Estudiante" },
+                new Rol { NombreRol = "Admin" }
+            );
+            db.SaveChanges();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("ERROR DB INIT: " + ex.Message);
     }
 }
 
