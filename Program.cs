@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProyectoAnalisis.Data;
+using ProyectoAnalisis.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,21 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+    if (!db.Roles.Any())
+    {
+        db.Roles.AddRange(
+            new Rol { NombreRol = "Cliente" },
+            new Rol { NombreRol = "Estudiante" },
+            new Rol { NombreRol = "Admin" }
+        );
+        db.SaveChanges();
+    }
+}
+
 
 // 🔹 3. CORS (DESPUÉS de build, antes de endpoints)
 app.UseCors("AllowAll");
