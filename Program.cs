@@ -102,17 +102,28 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
 
+    // Imprimimos un log visible en Railway
+    Console.WriteLine(">>> DEBUG: Iniciando lógica de base de datos...");
 
-    if (!dbContext.Roles.Any())
+    try
     {
-        dbContext.Roles.AddRange(
-            new Rol { NombreRol = "Cliente" },  
-            new Rol { NombreRol = "Estudiante" },
-            new Rol { NombreRol = "Admin" }
-        );
-        dbContext.SaveChanges();
+        // Usaremos EnsureCreated() porque es más agresivo y fiable para despliegues rápidos
+        // EnsureCreated() crea la DB y tablas si no existen, sin depender del historial de migraciones
+        bool created = dbContext.Database.EnsureCreated();
+
+        if (created)
+        {
+            Console.WriteLine(">>> DEBUG: ¡Base de datos creada exitosamente!");
+        }
+        else
+        {
+            Console.WriteLine(">>> DEBUG: La base de datos ya existía (o no fue necesario crearla).");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($">>> DEBUG FATAL: Error en base de datos: {ex.Message}");
     }
 }
 

@@ -1,0 +1,11 @@
+# .gitignore para .NET
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+.DS_Store
+# Base de datos y secretos (IMPORTANTE)
+appsettings.json
