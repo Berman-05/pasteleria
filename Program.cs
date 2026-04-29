@@ -6,6 +6,7 @@ using ProyectoAnalisis.Data;
 using ProyectoAnalisis.Models;
 using System.Text;
 
+Console.WriteLine(">>> SI NO FUNCIONA ME MATO");
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
