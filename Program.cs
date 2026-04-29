@@ -1,70 +1,119 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using ProyectoAnalisis.Data;
 using ProyectoAnalisis.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔹 1. DB
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-// 🔹 2. CORS (ANTES de build)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy => policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod());
+    options.AddPolicy("MiPoliticaCORS", policy =>
+    {
+        policy.AllowAnyOrigin() // Permite cualquier origen (frontend)
+              .AllowAnyMethod() // Permite GET, POST, PUT, DELETE, etc.
+              .AllowAnyHeader(); // Permite cualquier cabecera
+    });
 });
 
-// 🔹 otros servicios
+builder.Services.AddControllers();
+
+// Conexión a PostgreSQL
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// JWT
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Swagger + JWT
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ProyectoAnalisis API",
+        Version = "v1"
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Ingresa el token así: Bearer {tu token}"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 var app = builder.Build();
-using (var scope = app.Services.CreateScope())
+app.UseCors("MiPoliticaCORS");
+
+if (app.Environment.IsDevelopment())
 {
-    try
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        db.Database.Migrate();
-
-        if (!db.Roles.Any())
-        {
-            db.Roles.AddRange(
-                new Rol { NombreRol = "Cliente" },
-                new Rol { NombreRol = "Estudiante" },
-                new Rol { NombreRol = "Admin" }
-            );
-            db.SaveChanges();
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("ERROR DB INIT: " + ex.Message);
-    }
-}
-
-
-// 🔹 3. CORS (DESPUÉS de build, antes de endpoints)
-app.UseCors("AllowAll");
-
-// 🔹 middleware normal
-
-
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+Console.WriteLine("CONNECTION STRING:");
+Console.WriteLine(builder.Configuration.GetConnectionString("DefaultConnection"));
+app.UseHttpsRedirection();
 
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// 🔹 4. PUERTO (al final)
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-app.Run($"http://0.0.0.0:{port}");
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.Migrate();
+
+
+    if (!dbContext.Roles.Any())
+    {
+        dbContext.Roles.AddRange(
+            new Rol { NombreRol = "Cliente" },  
+            new Rol { NombreRol = "Estudiante" },
+            new Rol { NombreRol = "Admin" }
+        );
+        dbContext.SaveChanges();
+    }
+}
+
+app.Run();
